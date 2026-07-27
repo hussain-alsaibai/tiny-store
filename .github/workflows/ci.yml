@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ['3.9', '3.10', '3.11', '3.12']
+      - name: Syntax check
+        run: python -m py_compile tiny_store.py
+      - name: Unit tests
+        run: |
+          python -c "
+          import tempfile, os, time, shutil
+          from tiny_store import Store, TieredStore, Entry
+          
+          # Create temp store
+          root = tempfile.mkdtemp()
+          store = Store(root, wal=True, index_enabled=True)
+          
+          # Test basic ops
+          assert store.put('key:1', {'v': 1}) == True
+          assert store.get('key:1') == {'v': 1}
+          assert store.has('key:1') == True
+          
+          # TTL
+          store.put('ttl:1', 'short', ttl=0.1)
+          assert store.has('ttl:1') == True
+          time.sleep(0.15)
+          assert store.has('ttl:1') == False
+          
+          # Update
+          store.put('counter', 0)
+          store.update('counter', lambda n: n + 1)
+          assert store.get('counter') == 1
+          
+          # Scan
+          store.put('scan:a', 1)
+          store.put('scan:b', 2)
+          store.put('other', 3)
+          keys = sorted(k for k, _ in store.scan(prefix='scan:'))
+          assert keys == ['scan:a', 'scan:b']
+          
+          # Count
+          assert store.count('scan:') == 2
+          
+          # Export/Import
+          with tempfile.NamedTemporaryFile(suffix='.jsonl', delete=False) as f:
+              tmp = f.name
+          n = store.export_jsonl(tmp)
+          assert n == 5
+          
+          root2 = tempfile.mkdtemp()
+          store2 = Store(root2)
+          n2 = store2.import_jsonl(tmp)
+          assert n2 == 5
+          
+          # Clean expired
+          store.put('exp:1', 1, ttl=0.05)
+          store.put('exp:2', 2, ttl=0.05)
+          time.sleep(0.1)
+          deleted = store.clean_expired()
+          assert deleted == 2
+          
+          # Stats
+          stats = store.stats()
+          assert 'total_keys' in stats
+          assert 'active_keys' in stats
+          
+          # Clear
+          n = store.clear()
+          assert n >= 0
+          
+          # TieredStore
+          hot = {}
+          tiered = TieredStore(store, hot=hot, hot_limit=10)
+          tiered.put('t:1', 'hello')
+          assert tiered.get('t:1') == 'hello'
+          assert 't:1' in hot
+          
+          # Cleanup
+          shutil.rmtree(root)
+          shutil.rmtree(root2)
+          os.unlink(tmp)
+          
+          print('All tests passed!')
+          "
