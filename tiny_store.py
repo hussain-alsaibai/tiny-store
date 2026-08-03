@@ -201,9 +201,9 @@ class Store:
 
     def _save_index(self) -> None:
         idx_path = self.root / INDEX_FILE
-        with open(idx_path + ".tmp", "w", encoding="utf-8") as f:
+        with open(str(idx_path) + ".tmp", "w", encoding="utf-8") as f:
             json.dump(self._index, f)
-        os.replace(idx_path + ".tmp", idx_path)
+        os.replace(str(idx_path) + ".tmp", str(idx_path))
 
     # ---- Core operations ----
 
