@@ -1,5 +1,4 @@
 """Tests for tiny-store — filesystem-backed KV store."""
-import os
 import shutil
 import tempfile
 import time
