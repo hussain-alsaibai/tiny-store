@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import time
 import pytest
-from tiny_store import Store
+from tiny_store import Store, TieredStore
 
 
 @pytest.fixture
@@ -175,3 +175,38 @@ class TestPersistence:
 
         store2.put("also_shared", True)
         assert store1.get("also_shared") is True
+
+
+class TestTieredStore:
+    """Regression coverage for the L1 hot tier."""
+
+    def test_caller_hot_dict_is_used_when_empty(self, tmpdir):
+        """An empty caller-provided dict must still be the hot tier.
+
+        `hot or {}` replaced an empty dict with a fresh one (empty dict is
+        falsy), so the caller's dict never received promoted keys and the CI
+        assertion `assert 't:1' in hot` failed.
+        """
+        store = Store(tmpdir)
+        hot = {}
+        tiered = TieredStore(store, hot=hot, hot_limit=10)
+        assert tiered.hot is hot
+
+        tiered.put("t:1", "hello")
+        assert "t:1" in hot
+        assert tiered.get("t:1") == "hello"
+
+    def test_hot_defaults_to_internal_dict(self, tmpdir):
+        store = Store(tmpdir)
+        tiered = TieredStore(store)
+        tiered.put("t:2", "world")
+        assert tiered.get("t:2") == "world"
+        assert "t:2" in tiered.hot
+
+    def test_get_promotes_from_warm_tier(self, tmpdir):
+        store = Store(tmpdir)
+        store.put("warm", "value")
+        hot = {}
+        tiered = TieredStore(store, hot=hot, hot_limit=10)
+        assert tiered.get("warm") == "value"
+        assert "warm" in hot

@@ -694,7 +694,10 @@ class TieredStore:
         hot_limit: int = 1000,
     ):
         self.store = store
-        self.hot: dict[str, Any] = hot or {}
+        # NOTE: `hot or {}` would silently swap in a *new* dict whenever the
+        # caller passes an empty one (an empty dict is falsy), so the caller
+        # dict would never receive promoted keys.
+        self.hot: dict[str, Any] = hot if hot is not None else {}
         self.hot_limit = hot_limit
 
     def get(self, key: str, default: Any = None) -> Any:
