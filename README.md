@@ -9,7 +9,8 @@ prefix/regex search, cursor-based pagination, JSONL import/export, and file-watc
 Composable with `fast-cache` for a memory-L1 + disk-L2 cache tier.
 
 ```bash
-pip install tiny-store
+# From GitHub (recommended -- not yet on PyPI)
+pip install git+https://github.com/hussain-alsaibai/tiny-store.git
 # or: copy tiny_store.py into your project (MIT licensed)
 ```
 
